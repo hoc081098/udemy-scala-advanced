@@ -208,4 +208,6 @@ def main(): Unit = {
   println("---")
 
   (MySet(9, 3) -- MySet(1, 2, 3)) foreach println
+  println("---")
+  (MySet(9, 3) & MySet(1, 2, 3)) foreach println
 }
