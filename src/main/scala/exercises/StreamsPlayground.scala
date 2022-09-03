@@ -25,7 +25,7 @@ abstract class MyStream[+A] {
 
   def #::[B >: A](element: B): MyStream[B] // prepend operator
 
-  def ++[B >: A](anotherStream: MyStream[B]): MyStream[B] // concatenate two streams
+  def ++[B >: A](anotherStream: => MyStream[B]): MyStream[B] // concatenate two streams
 
   //
   //
@@ -82,7 +82,7 @@ object EmptyStream extends MyStream[Nothing] {
 
   def #::[B >: Nothing](element: B): MyStream[B] = new Cons[B](element, this)
 
-  def ++[B >: Nothing](anotherStream: MyStream[B]): MyStream[B] = anotherStream
+  def ++[B >: Nothing](anotherStream: => MyStream[B]): MyStream[B] = anotherStream
 
   //
   //
@@ -120,7 +120,7 @@ class Cons[+A](hd: A, tl: => MyStream[A]) extends MyStream[A] {
    */
   def #::[B >: A](element: B): MyStream[B] = new Cons[B](element, this)
 
-  def ++[B >: A](anotherStream: MyStream[B]): MyStream[B] = new Cons[B](head, tail ++ anotherStream)
+  def ++[B >: A](anotherStream: => MyStream[B]): MyStream[B] = new Cons[B](head, tail ++ anotherStream)
 
   //
   //
@@ -138,10 +138,12 @@ class Cons[+A](hd: A, tl: => MyStream[A]) extends MyStream[A] {
    */
   def map[B](f: A => B): MyStream[B] = new Cons[B](f(head), tail.map(f)) // preserves lazy evaluation
 
-  def flatMap[B](f: A => MyStream[B]): MyStream[B] = {
-    val h = f(head)
-    new Cons[B](h.head, h.tail ++ tail.flatMap(f))
-  }
+  //  def flatMap[B](f: A => MyStream[B]): MyStream[B] = {
+  //    val h = f(head)
+  //    new Cons[B](h.head, h.tail ++ tail.flatMap(f))
+  //  }
+
+  def flatMap[B](f: A => MyStream[B]): MyStream[B] = f(head) ++ tail.flatMap(f)
 
   def filter(predicate: A => Boolean): MyStream[A] = {
     if (predicate(head)) new Cons[A](head, tail.filter(predicate))
@@ -172,4 +174,35 @@ object StreamsPlayground extends App {
   // map, flatMap
   println(startFrom0.map(_ * 2).take(100).toList())
   println(startFrom0.flatMap(x => new Cons(x, new Cons(x + 1, EmptyStream))).take(10).toList())
+  println(startFrom0.filter(_ < 10).take(10).take(20).toList())
+
+  // Exercises on streams
+  // 1 - stream of fibonacci numbers
+  // 2 - stream of prime numbers with Eratosthenes's sieve
+  /*
+    [2 3 ... ]
+    filter out all numbers divisible by 2
+    [ 2 3 5 7 9 11 ...]
+    filter out all numbers divisible by 3
+    [ 2 3 5 7 11 ...]
+    filter out all numbers divisible by 5
+    ...
+   */
+
+  def primeNumbers(): MyStream[Int] = {
+    def eratosthenesSieve(stream: MyStream[Int]): MyStream[Int] = {
+      val head = stream.head
+
+      new Cons(head, EmptyStream) ++ eratosthenesSieve(stream.tail.filter(_ % head != 0))
+    }
+
+    eratosthenesSieve(MyStream.from(2)(_ + 1))
+  }
+
+  def fibonacci(first: BigInt, second: BigInt): MyStream[BigInt] =
+    MyStream.from((first, second)) { tuple => tuple._2 -> (tuple._1 + tuple._2) }
+      .map(_._1)
+
+  println(fibonacci(0, 1).take(10).toList())
+  println(primeNumbers().take(10).toList())
 }
