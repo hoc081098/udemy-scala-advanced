@@ -69,11 +69,32 @@ object Monads extends App {
       Monad[T] {
         def flatMap[B](f: T => Monad[B]): Monad[B] = ... (implemented)
 
-        def map[B](f: T => B): Monad[B] = ???
+        def map[B](f: T => B): Monad[B] = flatMap(x => unit(f(x)))
 
-        def flatten(m: Monad[[Monad[T]]): Monad[T] = ???
+        def flatten(m: Monad[[Monad[T]]): Monad[T] = flatMap(identity)
 
         (have List in mind)
       }
    */
+
+  class Lazy[T](t: => T) {
+    lazy val value: T = t
+
+    def flatMap[B](f: T => Lazy[B]): Lazy[B] = new Lazy[B](f(value).value)
+  }
+
+  val lazy1 = Lazy {
+    println("Execute 1")
+    1
+  }
+  val lazy2 = lazy1.flatMap { i =>
+    Lazy {
+      println("Execute 2")
+      1 + i
+    }
+  }
+
+  println(lazy2.value)
+  println(lazy2.value)
+  println(lazy2.value)
 }
