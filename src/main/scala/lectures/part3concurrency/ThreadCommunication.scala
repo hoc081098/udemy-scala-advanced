@@ -1,6 +1,9 @@
 package com.hoc081098.udemyscalaadvanced
 package lectures.part3concurrency
 
+import scala.collection.mutable
+import scala.util.Random
+
 object ThreadCommunication extends App {
   /*
     the producer-consumer problem
@@ -57,7 +60,7 @@ object ThreadCommunication extends App {
   // wait()-ing on an object's monitor suspends you (the thread) indefinitely
   // waiting and notifying only work in "synchronized expressions"
 
-  def smartProdsCons(): Unit = {
+  def smartProdCons(): Unit = {
     val container = new SimpleContainer
 
     val consumer = new Thread(() => {
@@ -87,5 +90,66 @@ object ThreadCommunication extends App {
     producer.start()
   }
 
-  smartProdsCons()
+  // smartProdCons()
+
+  /*
+    producer -> [ ? ? ? ] -> consumer
+   */
+
+  def prodConsLargeBuffer(): Unit = {
+    val buffer: mutable.Queue[Int] = new mutable.Queue[Int]
+    val capacity = 3
+
+    val consumer = new Thread(() => {
+      val random = new Random()
+
+      while (true) {
+        buffer.synchronized {
+          if (buffer.isEmpty) {
+            println("[consumer] buffer empty, waiting...")
+            buffer.wait()
+          }
+
+          // there must be at least ONE value in the buffer
+          val x = buffer.dequeue()
+          println(s"[consumer] consumed $x")
+
+          // hey producer, there's empty space available, are you lazy?!
+          buffer.notify()
+        }
+
+        Thread.sleep(random.nextInt(250))
+      }
+    })
+
+    val producer = new Thread(() => {
+      val random = new Random()
+      var i = 0
+
+      while (true) {
+        buffer.synchronized {
+          if (buffer.size == capacity) {
+            println("[producer] buffer is full, waiting...")
+            buffer.wait()
+          }
+
+          // there must be at least ONE EMPTY SPACE in the buffer
+          println(s"[producer] producing ${i}")
+          buffer.enqueue(i)
+
+          // hey consumer, new food for you
+          buffer.notify()
+
+          i += 1
+        }
+
+        Thread.sleep(random.nextInt(500))
+      }
+    })
+
+    consumer.start()
+    producer.start()
+  }
+
+  prodConsLargeBuffer()
 }
