@@ -354,7 +354,7 @@ object ThreadCommunication extends App {
   val pierre = Friend("Pierre")
 
   // new Thread(() => sam.bow(pierre)).start() // sam's lock,     | then pierre's lock
-  // new Thread(() => pierre.bow(sam)).start() // pierre's block, | then sam's block
+  // new Thread(() => pierre.bow(sam)).start() // pierre's lock, | then sam's lock
 
   // 3 - livelock
   new Thread(() => sam.pass(pierre)).start()
