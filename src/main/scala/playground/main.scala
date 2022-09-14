@@ -27,4 +27,15 @@ def main(): Unit = {
   println(bmw1.toMap)
 
   println("Hello world!")
+
+  println(
+    LazyList.unfold(0)(x => Some(x, x + 1))
+      .take(100)
+      .toList
+  )
+  println(
+    LazyList.iterate(0)(_ + 1)
+      .take(100)
+      .toList
+  )
 }
