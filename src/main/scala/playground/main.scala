@@ -20,7 +20,11 @@ case class BMW(name: String, horsePower: Int) extends Car
 
 @main
 def main(): Unit = {
-  val bmw = new BMW("F15", 309) with Marshaller
+  val bmw: BMW with Marshaller = new BMW("F15", 309) with Marshaller
+  val bmw1: BMW & Marshaller = new BMW("F15", 309) with Marshaller
+
   println(bmw.toMap)
+  println(bmw1.toMap)
+
   println("Hello world!")
 }
