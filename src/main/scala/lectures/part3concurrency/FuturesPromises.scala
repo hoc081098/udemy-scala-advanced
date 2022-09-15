@@ -1,14 +1,17 @@
 package com.hoc081098.udemyscalaadvanced
 package lectures.part3concurrency
 
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.*
-import scala.util.{Failure, Random, Success}
+import scala.util.{Failure, Random, Success, Try}
 import scala.concurrent.duration.*
 
-// important for futures
-import scala.concurrent.ExecutionContext.Implicits.global
-
 object FuturesPromises extends App {
+  // important for futures
+
+  import scala.concurrent.ExecutionContext.Implicits.global
+
   def calculateMeaningOfLife: Int = {
     Thread.sleep(2_000)
     42
@@ -155,12 +158,165 @@ object FuturesPromises extends App {
   val producer = new Thread(() => {
     println("[producer] crunching numbers...")
     Thread.sleep(500)
+    println("[producer] fulfilling the promise")
+
     // "fulfilling" the promise
     promise.success(42)
     //    promise.failure(new RuntimeException())
+
     println("[producer] done")
   })
 
   producer.start()
   Thread.sleep(1_000)
+}
+
+object Exercises extends App {
+  implicit val ex: ExecutionContextExecutorService = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(64))
+
+  /*
+    1) fulfill a future IMMEDIATELY with a value
+    2) inSequence(fa, fb)
+    3) first(fa, fb) => new future with the first value of the two futures
+    4) last(fa, fb) => new future with the last value
+    5) retryUntil[T](action: () => Future[T], condition: T => Boolean): Future[T]
+   */
+
+  // 1) fulfill a future IMMEDIATELY with a value
+  val valueFuture: Future[Int] = Future.successful(42)
+  println(s"Value: ${valueFuture.value}")
+
+  def fulfillImmediately[T](value: T): Future[T] = Future.successful(value)
+
+  // 2) inSequence(fa, fb)
+
+  // my implementation #1
+  //  def inSequence[T, R](fa: Future[T], fb: Future[R]): Future[Unit] = {
+  //    val unitFuture = Future.successful(())
+  //
+  //    for {
+  //      _ <- fa.map(_ => ()).recoverWith(_ => unitFuture)
+  //      _ <- fb.map(_ => ()).recoverWith(_ => unitFuture)
+  //    } yield ()
+  //  }
+
+  // my implementation #2
+  def inSequenceMy[A, B](fa: Future[A], fb: Future[B]): Future[B] = {
+    for {
+      _ <- fa.map(_ => ()).recoverWith(_ => Future.successful(()))
+      b <- fb
+    } yield b
+  }
+
+  // solution
+  def inSequence[A, B](fa: Future[A], fb: Future[B]): Future[B] = fa.flatMap(_ => fb)
+
+  // 3) first(fa, fb) => new future with the first value of the two futures
+
+  // my implementation -> same
+  def firstMy[T](fa: Future[T], fb: Future[T]): Future[T] = {
+    val promise = Promise[T]
+
+    fa.onComplete(promise.tryComplete)
+    fb.onComplete(promise.tryComplete)
+
+    promise.future
+  }
+
+  // solution
+  def first[T](fa: Future[T], fb: Future[T]): Future[T] = {
+    val promise = Promise[T]
+
+    fa.onComplete(promise.tryComplete)
+    fb.onComplete(promise.tryComplete)
+
+    promise.future
+  }
+
+  // 4) last(fa, fb) => new future with the last value
+
+  // my implementation
+  def lastMy[T](fa: Future[T], fb: Future[T]): Future[T] = {
+    val promise = Promise[T]
+    val faResult = AtomicReference[Try[T]]
+    val fbResult = AtomicReference[Try[T]]
+
+    fa.onComplete { t =>
+      faResult.set(t)
+      if (fbResult.get() ne null) {
+        promise.complete(t)
+      }
+    }
+    fb.onComplete { t =>
+      fbResult.set(t)
+      if (faResult.get() ne null) {
+        promise.complete(t)
+      }
+    }
+
+    promise.future
+  }
+
+  // solution
+  def last[T](fa: Future[T], fb: Future[T]): Future[T] = {
+    // 1 promise which both futures will try to complete
+    // 2 promise which the LAST future will complete
+
+    val bothPromise = Promise[T]
+    val lastPromise = Promise[T]
+
+    //    def tryComplete(t: Try[T]): Unit = {
+    //      try {
+    //        bothPromise.complete(t)
+    //      } catch {
+    //        case _: IllegalStateException => lastPromise.complete(t)
+    //      }
+    //    }
+
+    def tryComplete(result: Try[T]): Unit = {
+      if (!bothPromise.tryComplete(result))
+        lastPromise.complete(result)
+    }
+
+    fa.onComplete(tryComplete)
+    fb.onComplete(tryComplete)
+
+    lastPromise.future
+  }
+
+  val fast = Future {
+    Thread.sleep(100)
+    42
+  }
+  val slow = Future {
+    Thread.sleep(200)
+    45
+  }
+  first(fast, slow).foreach(f => println("FIRST: " + f))
+  last(fast, slow).foreach(l => println("LAST: " + l))
+
+  Thread.sleep(1_000)
+  println("-----------")
+
+  // 5) retryUntil[T](action: () => Future[T], condition: T => Boolean): Future[T]
+  def retryUntil[T](action: () => Future[T], condition: T => Boolean): Future[T] =
+    action()
+      .filter(condition)
+      .recoverWith {
+        case _ => retryUntil(action, condition)
+      }
+
+  val random = new Random()
+  val action = () => Future {
+    val nextValue = random.nextInt(100)
+    println(s"Generated $nextValue")
+    Thread.sleep(100)
+    nextValue
+  }
+
+  retryUntil(action, (x: Int) => x < 10).foreach(result => {
+    println(s"Settled at $result")
+    ex.shutdownNow()
+  })
+  Thread.sleep(10_000)
 }

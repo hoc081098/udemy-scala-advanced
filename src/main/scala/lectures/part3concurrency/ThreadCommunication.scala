@@ -241,7 +241,7 @@ object ThreadCommunication extends App {
           val x = buffer.dequeue() // OOps. !
           println(s"[consumer $id] consumed $x")
 
-          buffer.notify()
+          buffer.notifyAll()
         }
 
         Thread.sleep(random.nextInt(250))
@@ -265,7 +265,7 @@ object ThreadCommunication extends App {
           println(s"[producer $id] producing $i")
           buffer.enqueue(i)
 
-          buffer.notify()
+          buffer.notifyAll()
 
           i += 1
         }
