@@ -25,7 +25,10 @@ object Givens extends App {
 
   object GivenWith {
     given descendingOrdering_v3: Ordering[Int] with {
-      override def compare(x: Int, y: Int): Int = y - x
+      override def compare(x: Int, y: Int): Int = {
+        println(s"giveWith compare $x, $y")
+        y - x
+      }
     }
   }
 
@@ -52,17 +55,21 @@ object Givens extends App {
     def combine(x: A, y: A): A
   }
 
-  implicit def listOrdering[A](implicit simpleOrdering: Ordering[A], combinator: Combinator[A]): Ordering[List[A]] =
-    (x: List[A], y: List[A]) =>
-      val sumX = x.reduce(combinator.combine)
-      val sumY = y.reduce(combinator.combine)
-      simpleOrdering.compare(sumX, sumY)
+  //  implicit def listOrdering[A](implicit simpleOrdering: Ordering[A], combinator: Combinator[A]): Ordering[List[A]] =
+  //    (x: List[A], y: List[A]) =>
+  //      val sumX = x.reduce(combinator.combine)
+  //      val sumY = y.reduce(combinator.combine)
+  //      simpleOrdering.compare(sumX, sumY)
 
   // equivalent in Scala 3 with givens
   given listOrdering_v2[A] (using simpleOrdering: Ordering[A], combinator: Combinator[A]): Ordering[List[A]] with
     override def compare(x: List[A], y: List[A]): Int =
+      println(s"simpleOrdering: $simpleOrdering")
+      println(s"combinator: $combinator")
+
       val sumX = x.reduce(combinator.combine)
       val sumY = y.reduce(combinator.combine)
+
       simpleOrdering.compare(sumX, sumY)
 
   // implicit conversions (abused in Scala 2)
@@ -81,7 +88,24 @@ object Givens extends App {
     override def apply(x: String): Person = Person(x)
 
   println("hoc081098".greet())
-
   println(anOrderedList)
+
+  object CombinatorGivens {
+    given sumIntCombinator: Combinator[Int] with {
+      override def combine(x: Int, y: Int): Int = {
+        println(s"SumIntCombinator $x, $y")
+        x + y
+      }
+    }
+  }
+
+  import CombinatorGivens.sumIntCombinator
+
+  println(s"list ordering: ${implicitly[Ordering[List[Int]]]}")
+  val value: List[List[Int]] = List(
+    List(1, 2, 3),
+    List(4, 5, 6)
+  )
+  println(value.sorted)
 }
 
