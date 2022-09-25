@@ -8,10 +8,13 @@ object sorted extends App {
       y - x
     }
   }
+
   val value: List[List[Int]] = List(
     List(1, 2, 3),
     List(4, 5, 6)
   )
   println(value.sorted)
-}
 
+  val ordering = implicitly[Ordering[Iterable[Int]]]
+  println(ordering)
+}
